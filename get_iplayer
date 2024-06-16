@@ -6956,7 +6956,6 @@ sub channels_schedule {
 		'national' => {
 			'p00fzl6b' => 'BBC Four', # bbcfour/programmes/schedules
 			'p00fzl6g' => 'BBC News', # bbcnews/programmes/schedules
-			'p00fzl6n' => 'BBC One', # bbcone/programmes/schedules/hd
 			'p00fzl73' => 'BBC Parliament', # bbcparliament/programmes/schedules
 			'p00fzl95' => 'BBC Three', # bbcthree/programmes/schedules
 			'p015pksy' => 'BBC Two', # bbctwo/programmes/schedules/hd
