@@ -5683,7 +5683,7 @@ sub fetch_episodes_recursive {
 					my @hrefs = $dom->findnodes('//*[contains(@class,"series-nav")]//a/@href');
 					for my $href (@hrefs) {
 						my $href_path = $href->findvalue('.');
-						my ($sid) = $href_path =~ /seriesId=([^\&]+)/i;
+						my ($sid) = $href_path =~ /seriesId=([a-z0-9]+)/i;
 						next if $sid && $sid !~ REGEX_PID;
 						push @urls, "https://www.bbc.co.uk".$href_path;
 					}
