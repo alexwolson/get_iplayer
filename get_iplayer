@@ -2279,7 +2279,7 @@ sub StringUtils::sanitize_path {
 		$string =~ s/$mac_bad//g if IS_MACOS;
 	} else {
 		# use ISO8601 dates
-		$string =~ s|(\d\d)[/_](\d\d)[/_](20\d\d)|$3-$2-$1|g;
+		$string =~ s|\b(\d\d)[/_](\d\d)[/_](\d\d\d\d)\b|$3-$2-$1|g;
 		# ASCII-fy some punctuation
 		$string = StringUtils::convert_punctuation($string);
 		# Remove diacritical marks
