@@ -5042,18 +5042,16 @@ sub get_verpids_json {
 			$prog->{channel} ||= $smp->{masterBrandName};
 			$prog->{descshort} ||= $smp->{summary};
 			$prog->{guidance} ||= "Yes" if $prog->{guidance};
-			unless ( $prog->{thumbnail} ) {
-				my $recipe = $prog->thumb_url_recipe();
-				my $thumbnail = $smp->{holdingImageURL};
-				$thumbnail =~ s/\$recipe/$recipe/;
-				if ( ! $thumbnail ) {
-					$thumbnail = $doc->{holdingImage};
-					$thumbnail =~ s/\b\d+x\d+\b/$recipe/;
-				}
-				if ( $thumbnail ) {
-					$thumbnail = "https:".$thumbnail unless $thumbnail =~ /^http/;
-					$prog->{thumbnail} = $thumbnail;
-				}
+			my $recipe = $prog->thumb_url_recipe();
+			my $thumbnail = $smp->{holdingImageURL};
+			$thumbnail =~ s/\$recipe/$recipe/;
+			if ( ! $thumbnail ) {
+				$thumbnail = $doc->{holdingImage};
+				$thumbnail =~ s/\b\d+x\d+\b/$recipe/;
+			}
+			if ( $thumbnail ) {
+				$thumbnail = "https:".$thumbnail unless $thumbnail =~ /^http/;
+				$prog->{thumbnail} = $thumbnail;
 			}
 			my $kind = $smp->{items}->[0]->{kind};
 			if ( $kind eq "radioProgramme" && $prog->{type} ne 'radio') {
