@@ -1432,17 +1432,17 @@ sub get_regex_matches {
 	if ( $opt->{excludechannel} ) {
 		$channel_exclude_regex = '('.(join '|', ( split /,/, $opt->{excludechannel} ) ).')';
 	} else {
-		$channel_exclude_regex = '^ROGUE$';
+		$channel_exclude_regex = '^_ROGUE_VALUE_$';
 	}
 	if ( $opt->{excludecategory} ) {
 		$category_exclude_regex = '('.(join '|', ( split /,/, $opt->{excludecategory} ) ).')';
 	} else {
-		$category_exclude_regex = '^ROGUE$';
+		$category_exclude_regex = '^_ROGUE_VALUE_$';
 	}
 	if ( $opt->{exclude} ) {
 		$exclude_regex = '('.(join '|', ( split /,/, $opt->{exclude} ) ).')';
 	} else {
-		$exclude_regex = '^ROGUE$';
+		$exclude_regex = '^_ROGUE_VALUE_$';
 	}
 	my $now = time();
 	my $since = $now - ($opt->{since} * 3600) if defined $opt->{since};
@@ -2996,7 +2996,7 @@ sub load {
 sub display {
 	my $this = shift;
 	my $title = shift || 'Options';
-	my $excluderegex = shift || 'ROGUEVALUE';
+	my $excluderegex = shift || '_ROGUE_VALUE_';
 	my $regex = $this->excludeopts;
 	main::logger "$title:\n";
 	for ( sort keys %{$this} ) {
@@ -3357,7 +3357,7 @@ sub channels_filtered {
 	my %group_channels;
 	# include/exclude matching channels as required
 	my $include_regex = '.*';
-	my $exclude_regex = '^ROGUEVALUE$';
+	my $exclude_regex = '^_ROGUE_VALUE_$';
 	# Create a regex from any comma separated values
 	$exclude_regex = '('.(join '|', ( split /,/, $opt->{refreshexclude} ) ).')' if $opt->{refreshexclude};
 	$include_regex = '('.(join '|', ( split /,/, $opt->{refreshinclude} ) ).')' if $opt->{refreshinclude};
@@ -3372,7 +3372,7 @@ sub channels_filtered {
 	$use_group_channels = 1 if ! $use_group_channels && $exclude_groups;
 	for my $channel ( keys %channels ) {
 		if ( $use_group_channels ) {
-			if ( $exclude_regex ne '^ROGUEVALUE$' && $group_channels{$channel} =~ /$exclude_regex/i ) {
+			if ( $exclude_regex ne '^_ROGUE_VALUE_$' && $group_channels{$channel} =~ /$exclude_regex/i ) {
 				delete $group_channels{$channel};
 			}
 			if ( $include_regex ne '.*' && $channels{$channel} =~ /$include_regex/i ) {
@@ -6394,7 +6394,7 @@ sub get_stream_data {
 	if ( grep /^ll$/, @exclude_supplier ) {
 		push @exclude_supplier, 'limelight';
 	}
-	my $exclude_regex = '^ROGUEVALUE$';
+	my $exclude_regex = '^_ROGUE_VALUE_$';
 	if ( @exclude_supplier ) {
 		$exclude_regex = '_('.(join('|', @exclude_supplier)).')';
 	}
