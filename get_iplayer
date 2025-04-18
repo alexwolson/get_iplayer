@@ -1944,7 +1944,7 @@ sub request_url_retry {
 		$is4xx = 0;
 		$res = $ua->request( HTTP::Request->new( GET => $url ) );
 		if ( ! $res->is_success ) {
-			$is4xx = $res->code() == 403 || $res->code() == 404;
+			$is4xx = $res->code() >= 400 && $res->code() < 500;
 			if ( $opt->{verbose} || ! ( $is4xx && $ok4xx ) ) {
 				logger "\nWARNING: $failmsg ($i/$retries): $url\n";
 				logger "WARNING: Response: ${\$res->code()} ${\$res->message()}\n";
