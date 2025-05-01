@@ -1118,7 +1118,7 @@ sub find_matches {
 
 		# Else assume this is a programme name regex
 		} elsif ( $_ ) {
-			logger "INFO: Search term '$_' is a substring\n" if $opt->{verbose};
+			logger "INFO: Search term '$_' is a substring or regular expression\n" if $opt->{verbose};
 			push @match_list, get_regex_matches( $prog, $_ );
 		}
 	}
@@ -3236,7 +3236,7 @@ sub list_progs {
 
 		# Else assume this is a programme name regex
 		} else {
-			main::logger "INFO: Search term '$_' is a substring\n" if $opt->{verbose};
+			main::logger "INFO: Search term '$_' is a substring or regular expression\n" if $opt->{verbose};
 			push @match_list, main::get_regex_matches( $prog, $_ );
 		}
 	}
