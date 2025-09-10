@@ -8352,9 +8352,10 @@ sub fetch {
 	my $file_size = 0;
 	my $file_size_mb = 0;
 	my $proxy_prefix;
-	my $resuming = 0;
-	my $retries = 3;
-	my $hide_progress = main::hide_progress();
+        my $resuming = 0;
+        my $retries = 3;
+        my $verify_retries = 5;
+        my $hide_progress = main::hide_progress();
 	my $crlf = ( $hide_progress || $opt->{logprogress} ) ? "\n" : "\r";
 	my $noresume = $opt->{noresume};
 	my $prog_mode = $streamdata{mode} || $prog->{mode};
@@ -8652,7 +8653,7 @@ sub fetch {
 		unshift @file_sequences, $init_sequence;
 	}
 	my @warnings;
-	for my $sequence ( @file_sequences ) {
+        SEGLOOP: for my $sequence ( @file_sequences ) {
 		$curr_sequence = $sequence;
 		my $segment = $segments->{$sequence};
 		my $segment_duration = $segment->{duration};
@@ -8667,55 +8668,70 @@ sub fetch {
 		$curr_segment_url = $segment_url;
 		main::logger "\nDEBUG: Downloading file segment [$sequence]\n" if $opt->{debug};
 		main::logger "DEBUG: File segment URL: $segment_url\n" if $opt->{debug};;
-		# download segment with retries
-		my $expected = 0;
-		my $got404 = 0;
-		my $i;
-		my $res;
-		for ($i = 0; $i < $retries; $i++) {
-			$res = $ua->get($segment_url, ':content_cb' => $callback);
-			$expected = $res->header("Content-Length");
-			if ( ! $res->is_success || ! $res->header("Content-Length") ) {
-				if ( $res->code == 404 ) {
-					if ( $sequence == $max_sequence ) {
-						# potential edge cases with incorrect DASH manifests
-						main::logger "\nWARNING: File segment not available from server [$sequence]\n";
-						main::logger "WARNING: This is the final file segment of the programme\n";
-						main::logger "WARNING: It may be incorrectly flagged as unavailable due to inaccurate programme data\n";
-						main::logger "WARNING: Check the end of the downloaded file to ensure it is complete\n";
-						if ( $opt->{verbose} ) {
-							main::logger "WARNING: File segment URL: $curr_segment_url\n";
-						}
-					} else {
-						# don't retry if 404 received
-						@warnings = (
-							"File segment not available from server [$sequence]",
-							"This is NOT a problem with get_iplayer. It is a problem with the BBC media stream."
-						);
-						$return = 2;
-					}
-					$got404 = 1;
-					last;
-				}
-			} else {
-				last;
+                my $verify_count = 0;
+                my $got404 = 0;
+                SEGMENT: while ( $verify_count < $verify_retries ) {
+                        # download segment with retries
+                        my $expected = 0;
+                        my $i;
+                        my $res;
+                        for ($i = 0; $i < $retries; $i++) {
+                                $res = $ua->get($segment_url, ':content_cb' => $callback);
+                                $expected = $res->header("Content-Length");
+                                if ( ! $res->is_success || ! $res->header("Content-Length") ) {
+                                        if ( $res->code == 404 ) {
+                                                if ( $sequence == $max_sequence ) {
+                                                        # potential edge cases with incorrect DASH manifests
+                                                        main::logger "\nWARNING: File segment not available from server [$sequence]\n";
+                                                        main::logger "WARNING: This is the final file segment of the programme\n";
+                                                        main::logger "WARNING: It may be incorrectly flagged as unavailable due to inaccurate programme data\n";
+                                                        main::logger "WARNING: Check the end of the downloaded file to ensure it is complete\n";
+                                                        if ( $opt->{verbose} ) {
+                                                                main::logger "WARNING: File segment URL: $curr_segment_url\n";
+                                                        }
+                                                } else {
+                                                        # don't retry if 404 received
+                                                        @warnings = (
+                                                                "File segment not available from server [$sequence]",
+                                                                "This is NOT a problem with get_iplayer. It is a problem with the BBC media stream."
+                                                        );
+                                                        $return = 2;
+                                                }
+                                                $got404 = 1;
+                                                last;
+                                        }
+                                } else {
+                                        last;
+                                }
+                        }
+                        # bail out if not available
+                        last SEGLOOP if $got404;
+                        # bail out on download failure
+			if ( $i == $retries ) {
+				@warnings = (
+					"Failed to download file segment [$sequence]",
+					"Response: ${\$res->code()} ${\$res->message()}"
+				);
+				$return = 1;
+				last SEGLOOP;
 			}
-		}
-		# bail out if not available
-		last if $got404;
-		# bail out on download failure
-		if ( $i == $retries ) {
-			@warnings = (
-				"Failed to download file segment [$sequence]",
-				"Response: ${\$res->code()} ${\$res->message()}"
-			);
-			$return = 1;
-			last;
-		}
-		my $size_diff = $size - $prev_size;
-		# verify segment size
-		unless ( $opt->{noverify} ) {
-			if ( $size_diff != $expected) {
+			my $size_diff = $size - $prev_size;
+			# verify segment size
+			unless ( $opt->{noverify} ) {
+				if ( $size_diff != $expected) {
+				unless ( truncate($fh, $prev_size) && seek($fh, $prev_size, 0) ) {
+					close $rh unless $noresume;
+					@warnings = (
+						"Unable to reset file for retry of file segment [$sequence]"
+					);
+					$return = 1;
+					last SEGLOOP;
+				}
+				$size = $prev_size;
+				if ( ++$verify_count < $verify_retries ) {
+					main::logger "\nWARNING: Unexpected size for file segment [$sequence] - retrying ($verify_count/$verify_retries)\n";
+					next SEGMENT;
+				}
 				close $rh unless $noresume;
 				@warnings = (
 					"Unexpected size for file segment [$sequence]",
@@ -8723,24 +8739,26 @@ sub fetch {
 					"This indicates a problem with your network connection to the media server"
 				);
 				$return = 1;
-				last;
+				last SEGLOOP;
+				}
 			}
-		}
-		# capture resume data
-		unless ( $noresume ) {
-			if ( ! print $rh "$sequence,$size,$elapsed,$size_diff,$segment_duration,$begin_time\n" ) {
-				close $rh;
-				@warnings = (
-					"Unable to save resume data for file segment [$sequence]"
-				);
-				$return = 1;
-				last;
-			}
-		}
-		$prev_sequence = $sequence;
-		$prev_size = $size;
-		$prev_elapsed = $elapsed;
-	}
+			# capture resume data
+			unless ( $noresume ) {
+                                if ( ! print $rh "$sequence,$size,$elapsed,$size_diff,$segment_duration,$begin_time\n" ) {
+                                        close $rh;
+                                        @warnings = (
+                                                "Unable to save resume data for file segment [$sequence]"
+                                        );
+                                        $return = 1;
+                                        last SEGLOOP;
+                                }
+                        }
+                        last SEGMENT;
+                }
+                $prev_sequence = $sequence;
+                $prev_size = $size;
+                $prev_elapsed = $elapsed;
+        }
 	close $fh;
 	close $rh unless $noresume;
 
