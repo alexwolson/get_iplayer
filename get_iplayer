@@ -8707,37 +8707,37 @@ sub fetch {
                         # bail out if not available
                         last SEGMENT if $got404;
                         # bail out on download failure
-                        if ( $i == $retries ) {
-                                @warnings = (
-                                        "Failed to download file segment [$sequence]",
-                                        "Response: ${\$res->code()} ${\$res->message()}"
-                                );
-                                $return = 1;
-                                last SEGLOOP;
-                        }
-                        my $size_diff = $size - $prev_size;
-                        # verify segment size
-                        unless ( $opt->{noverify} ) {
-                                if ( $size_diff != $expected) {
-                                        truncate($fh, $prev_size);
-                                        seek($fh, $prev_size, 0);
-                                        $size = $prev_size;
-                                        if ( ++$verify_count < $verify_retries ) {
-                                                main::logger "\nWARNING: Unexpected size for file segment [$sequence] - retrying ($verify_count/$verify_retries)\n";
-                                                next SEGMENT;
-                                        }
-                                        close $rh unless $noresume;
-                                        @warnings = (
-                                                "Unexpected size for file segment [$sequence]",
-                                                "Expected: $expected  Downloaded: $size_diff",
-                                                "This indicates a problem with your network connection to the media server"
-                                        );
-                                        $return = 1;
-                                        last SEGLOOP;
-                                }
-                        }
-                        # capture resume data
-                        unless ( $noresume ) {
+			if ( $i == $retries ) {
+				@warnings = (
+					"Failed to download file segment [$sequence]",
+					"Response: ${\$res->code()} ${\$res->message()}"
+				);
+				$return = 1;
+				last SEGLOOP;
+			}
+			my $size_diff = $size - $prev_size;
+			# verify segment size
+			unless ( $opt->{noverify} ) {
+				if ( $size_diff != $expected) {
+					truncate($fh, $prev_size);
+					seek($fh, $prev_size, 0);
+					$size = $prev_size;
+					if ( ++$verify_count < $verify_retries ) {
+						main::logger "\nWARNING: Unexpected size for file segment [$sequence] - retrying ($verify_count/$verify_retries)\n";
+						next SEGMENT;
+					}
+					close $rh unless $noresume;
+					@warnings = (
+						"Unexpected size for file segment [$sequence]",
+						"Expected: $expected  Downloaded: $size_diff",
+						"This indicates a problem with your network connection to the media server"
+					);
+					$return = 1;
+					last SEGLOOP;
+				}
+			}
+			# capture resume data
+			unless ( $noresume ) {
                                 if ( ! print $rh "$sequence,$size,$elapsed,$size_diff,$segment_duration,$begin_time\n" ) {
                                         close $rh;
                                         @warnings = (
