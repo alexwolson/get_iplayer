@@ -8670,7 +8670,7 @@ sub fetch {
 		main::logger "DEBUG: File segment URL: $segment_url\n" if $opt->{debug};;
                 my $verify_count = 0;
                 my $got404 = 0;
-                SEGMENT: while (1) {
+                SEGMENT: while ( $verify_count < $verify_retries ) {
                         # download segment with retries
                         my $expected = 0;
                         my $i;
@@ -8705,7 +8705,7 @@ sub fetch {
                                 }
                         }
                         # bail out if not available
-                        last SEGMENT if $got404;
+                        last SEGLOOP if $got404;
                         # bail out on download failure
 			if ( $i == $retries ) {
 				@warnings = (
@@ -8719,21 +8719,27 @@ sub fetch {
 			# verify segment size
 			unless ( $opt->{noverify} ) {
 				if ( $size_diff != $expected) {
-					truncate($fh, $prev_size);
-					seek($fh, $prev_size, 0);
-					$size = $prev_size;
-					if ( ++$verify_count < $verify_retries ) {
-						main::logger "\nWARNING: Unexpected size for file segment [$sequence] - retrying ($verify_count/$verify_retries)\n";
-						next SEGMENT;
-					}
+				unless ( truncate($fh, $prev_size) && seek($fh, $prev_size, 0) ) {
 					close $rh unless $noresume;
 					@warnings = (
-						"Unexpected size for file segment [$sequence]",
-						"Expected: $expected  Downloaded: $size_diff",
-						"This indicates a problem with your network connection to the media server"
+						"Unable to reset file for retry of file segment [$sequence]"
 					);
 					$return = 1;
 					last SEGLOOP;
+				}
+				$size = $prev_size;
+				if ( ++$verify_count < $verify_retries ) {
+					main::logger "\nWARNING: Unexpected size for file segment [$sequence] - retrying ($verify_count/$verify_retries)\n";
+					next SEGMENT;
+				}
+				close $rh unless $noresume;
+				@warnings = (
+					"Unexpected size for file segment [$sequence]",
+					"Expected: $expected  Downloaded: $size_diff",
+					"This indicates a problem with your network connection to the media server"
+				);
+				$return = 1;
+				last SEGLOOP;
 				}
 			}
 			# capture resume data
@@ -8749,7 +8755,6 @@ sub fetch {
                         }
                         last SEGMENT;
                 }
-                last if $got404;
                 $prev_sequence = $sequence;
                 $prev_size = $size;
                 $prev_elapsed = $elapsed;
